@@ -4,22 +4,40 @@ CognitoUserPool:
     UserPoolName: ${self:service}-user-pool-${self:provider.stage}
     UsernameAttributes:
       - email
-      - phone_number
     AutoVerifiedAttributes:
       - email
+    MfaConfiguration: OPTIONAL
+    EnabledMfas:
+      - SOFTWARE_TOKEN_MFA
     Policies:
       PasswordPolicy:
-        MinimumLength: 8
+        MinimumLength: 12
         RequireUppercase: true
         RequireLowercase: true
         RequireNumbers: true
-        RequireSymbols: false
+        RequireSymbols: true
+    AccountRecoverySetting:
+      RecoveryMechanisms:
+        - Name: verified_email
+          Priority: 1
+    EmailConfiguration:
+      EmailSendingAccount: COGNITO_DEFAULT
+    DeviceConfiguration:
+      ChallengeRequiredOnNewDevice: true
+      DeviceOnlyRememberedOnUserPrompt: false
 
 CognitoUserPoolClient:
   Type: AWS::Cognito::UserPoolClient
   Properties:
     ClientName: ${self:service}-user-pool-client-${self:provider.stage}
     UserPoolId: !Ref CognitoUserPool
+    RefreshTokenValidity: 30
+    AccessTokenValidity: 1
+    IdTokenValidity: 1
+    TokenValidityUnits:
+      AccessToken: hours
+      IdToken: hours
+      RefreshToken: days
     AllowedOAuthFlowsUserPoolClient: true
     AllowedOAuthScopes:
       - email
@@ -31,14 +49,18 @@ CognitoUserPoolClient:
       - code
       - implicit
     ExplicitAuthFlows:
-      - ADMIN_NO_SRP_AUTH
-      - USER_PASSWORD_AUTH
+      - ALLOW_USER_SRP_AUTH
+      - ALLOW_REFRESH_TOKEN_AUTH
+    PreventUserExistenceErrors: ENABLED
+    EnableTokenRevocation: true
     CallbackURLs:
-      - https://localhost:3000
-    DefaultRedirectURI: https://localhost:3000
+      - ${self:custom.callbackUrls.${self:provider.stage}}
+    LogoutURLs:
+      - ${self:custom.logoutUrls.${self:provider.stage}}
+    DefaultRedirectURI: ${self:custom.callbackUrls.${self:provider.stage}}
 
 CognitoUserPoolDomain:
   Type: AWS::Cognito::UserPoolDomain
   Properties:
-    Domain: ${self:service}-auth-domain-${self:provider.stage}
+    Domain: !Sub '${AWS::StackName}-${AWS::AccountId}'
     UserPoolId: !Ref CognitoUserPool

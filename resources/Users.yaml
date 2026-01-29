@@ -1,0 +1,46 @@
+UsersTable:
+  Type: AWS::DynamoDB::Table
+  Properties:
+    TableName: ${self:service}-users-${self:provider.stage}
+    BillingMode: PAY_PER_REQUEST
+    StreamSpecification:
+      StreamViewType: NEW_AND_OLD_IMAGES
+    PointInTimeRecoverySpecification:
+      PointInTimeRecoveryEnabled: ${self:custom.pitr.${self:provider.stage}, false}
+    SSESpecification:
+      SSEEnabled: true
+      SSEType: KMS
+      KMSMasterKeyId: alias/aws/dynamodb
+    TimeToLiveSpecification:
+      AttributeName: expiresAt
+      Enabled: true
+    AttributeDefinitions:
+      - AttributeName: userId
+        AttributeType: S
+      - AttributeName: username
+        AttributeType: S
+      - AttributeName: createdAt
+        AttributeType: N
+    KeySchema:
+      - AttributeName: userId
+        KeyType: HASH
+    GlobalSecondaryIndexes:
+      - IndexName: usernameIndex
+        KeySchema:
+          - AttributeName: username
+            KeyType: HASH
+        Projection:
+          ProjectionType: ALL
+      - IndexName: createdAtIndex
+        KeySchema:
+          - AttributeName: createdAt
+            KeyType: HASH
+        Projection:
+          ProjectionType: KEYS_ONLY
+    Tags:
+      - Key: Environment
+        Value: ${self:provider.stage}
+      - Key: Service
+        Value: ${self:service}
+      - Key: ManagedBy
+        Value: Serverless-Framework

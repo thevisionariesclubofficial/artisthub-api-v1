@@ -1,0 +1,96 @@
+# Authentication Handlers Configuration
+# Auth handlers for Cognito integration
+# These endpoints are public (no JWT authorization required)
+
+signUp:
+  handler: src/handlers/auth.signUp
+  description: Register a new user with Cognito
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - cognito-idp:SignUp
+      Resource: !GetAtt CognitoUserPool.Arn
+  events:
+    - httpApi:
+        path: /auth/signup
+        method: post
+
+signIn:
+  handler: src/handlers/auth.signIn
+  description: Authenticate user with Cognito
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - cognito-idp:InitiateAuth
+      Resource: !GetAtt CognitoUserPool.Arn
+  events:
+    - httpApi:
+        path: /auth/login
+        method: post
+
+confirmSignUp:
+  handler: src/handlers/auth.confirmSignUp
+  description: Confirm user email with verification code
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - cognito-idp:ConfirmSignUp
+      Resource: !GetAtt CognitoUserPool.Arn
+  events:
+    - httpApi:
+        path: /auth/confirm
+        method: post
+
+resendConfirmationCode:
+  handler: src/handlers/auth.resendConfirmationCode
+  description: Resend confirmation code to user email
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - cognito-idp:ResendConfirmationCode
+      Resource: !GetAtt CognitoUserPool.Arn
+  events:
+    - httpApi:
+        path: /auth/resend-code
+        method: post
+
+adminConfirmUser:
+  handler: src/handlers/auth.adminConfirmUser
+  description: Admin confirm user (bypasses email verification)
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - cognito-idp:AdminConfirmSignUp
+      Resource: !GetAtt CognitoUserPool.Arn
+  environment:
+    USER_POOL_ID: !Ref CognitoUserPool
+  events:
+    - httpApi:
+        path: /auth/admin-confirm
+        method: post
+
+forgotPassword:
+  handler: src/handlers/auth.forgotPassword
+  description: Initiate password reset flow
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - cognito-idp:ForgotPassword
+      Resource: !GetAtt CognitoUserPool.Arn
+  events:
+    - httpApi:
+        path: /auth/forgot-password
+        method: post
+
+resetPassword:
+  handler: src/handlers/auth.resetPassword
+  description: Reset password with verification code
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - cognito-idp:ConfirmForgotPassword
+      Resource: !GetAtt CognitoUserPool.Arn
+  events:
+    - httpApi:
+        path: /auth/reset-password
+        method: post
