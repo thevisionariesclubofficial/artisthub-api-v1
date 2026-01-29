@@ -1,5 +1,5 @@
 org: thevisionariesclub
-service: task-api-v1
+service: artisthub-api-v1
 
 provider:
   name: aws
@@ -11,14 +11,11 @@ provider:
   timeout: 30
   environment:
     REGION: ${self:provider.region}
-    TASKS_TABLE: !Ref TasksTable
+    USERS_TABLE: !Ref UsersTable
+    CASTING_TABLE: !Ref CastingTable
     USER_POOL_CLIENT_ID: !Ref CognitoUserPoolClient
   httpApi:
     authorizers:
-      tokenAuthorizer:
-        type: request
-        identitySource: $request.header.Authorization
-        functionName: tokenAuthorizer
       jwtAuthorizer:
         type: jwt
         identitySource: $request.header.Authorization
@@ -125,54 +122,354 @@ functions:
           method: post
           cors: true
 
-  tokenAuthorizer:
-    handler: src/authorizers/tokenAuthorizer.handler
-    environment:
-      TASKS_TABLE: ${self:provider.environment.TASKS_TABLE}
-
-  createTask:
-    handler: src/handlers/createTask.handler
+  createUser:
+    handler: src/handlers/user.createUser
     iamRoleStatements:
       - Effect: Allow
         Action:
           - dynamodb:PutItem
-        Resource: !GetAtt TasksTable.Arn
+          - dynamodb:Query
+        Resource: 
+          - !GetAtt UsersTable.Arn
+          - !Sub '${UsersTable.Arn}/index/usernameIndex'
     events:
       - httpApi:
-          path: /tasks
+          path: /users
           method: post
-          authorizer: tokenAuthorizer
+          cors: true
+          authorizer: jwtAuthorizer
 
-  getTasks:
-    handler: src/handlers/getTasks.handler
+  getUserById:
+    handler: src/handlers/user.getUserById
     iamRoleStatements:
       - Effect: Allow
         Action:
-          - dynamodb:Scan
-        Resource: !GetAtt TasksTable.Arn
+          - dynamodb:GetItem
+        Resource: !GetAtt UsersTable.Arn
     events:
       - httpApi:
-          path: /tasks
+          path: /users/{userId}
           method: get
+          cors: true
           authorizer: jwtAuthorizer
 
-  updateTask:
-    handler: src/handlers/updateTask.handler
+  getUserByUsername:
+    handler: src/handlers/user.getUserByUsername
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:Query
+        Resource:
+          - !GetAtt UsersTable.Arn
+          - !Sub '${UsersTable.Arn}/index/usernameIndex'
+    events:
+      - httpApi:
+          path: /users/username/{username}
+          method: get
+          cors: true
+          authorizer: jwtAuthorizer
+
+  updateUser:
+    handler: src/handlers/user.updateUser
     iamRoleStatements:
       - Effect: Allow
         Action:
           - dynamodb:UpdateItem
-        Resource: !GetAtt TasksTable.Arn
+          - dynamodb:GetItem
+          - dynamodb:Query
+        Resource:
+          - !GetAtt UsersTable.Arn
+          - !Sub '${UsersTable.Arn}/index/usernameIndex'
     events:
       - httpApi:
-          path: /tasks/{id}
+          path: /users/{userId}
           method: put
-          authorizer: tokenAuthorizer
+          cors: true
+          authorizer: jwtAuthorizer
+
+  deleteUser:
+    handler: src/handlers/user.deleteUser
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:DeleteItem
+          - dynamodb:GetItem
+        Resource: !GetAtt UsersTable.Arn
+    events:
+      - httpApi:
+          path: /users/{userId}
+          method: delete
+          cors: true
+          authorizer: jwtAuthorizer
+
+  listUsers:
+    handler: src/handlers/user.listUsers
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:Scan
+        Resource: !GetAtt UsersTable.Arn
+    events:
+      - httpApi:
+          path: /users
+          method: get
+          cors: true
+          authorizer: jwtAuthorizer
+
+  incrementUserView:
+    handler: src/handlers/user.incrementUserView
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:UpdateItem
+        Resource: !GetAtt UsersTable.Arn
+    events:
+      - httpApi:
+          path: /users/{userId}/view
+          method: put
+          cors: true
+          authorizer: jwtAuthorizer
+
+  addWorkExperience:
+    handler: src/handlers/user.addWorkExperience
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:UpdateItem
+          - dynamodb:GetItem
+        Resource: !GetAtt UsersTable.Arn
+    events:
+      - httpApi:
+          path: /users/{userId}/work-experience
+          method: post
+          cors: true
+          authorizer: jwtAuthorizer
+
+  addPortfolioItem:
+    handler: src/handlers/user.addPortfolioItem
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:UpdateItem
+          - dynamodb:GetItem
+        Resource: !GetAtt UsersTable.Arn
+    events:
+      - httpApi:
+          path: /users/{userId}/portfolio
+          method: post
+          cors: true
+          authorizer: jwtAuthorizer
+
+  addConnection:
+    handler: src/handlers/user.addConnection
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:UpdateItem
+          - dynamodb:GetItem
+        Resource: !GetAtt UsersTable.Arn
+    events:
+      - httpApi:
+          path: /users/{userId}/connections
+          method: post
+          cors: true
+          authorizer: jwtAuthorizer
+
+  searchUsers:
+    handler: src/handlers/user.searchUsers
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:Scan
+        Resource: !GetAtt UsersTable.Arn
+    events:
+      - httpApi:
+          path: /users/search
+          method: get
+          cors: true
+          authorizer: jwtAuthorizer
+
+  createJob:
+    handler: src/handlers/casting.createJob
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:PutItem
+        Resource: !GetAtt CastingTable.Arn
+    events:
+      - httpApi:
+          path: /casting
+          method: post
+          cors: true
+
+  getJobById:
+    handler: src/handlers/casting.getJobById
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:GetItem
+        Resource: !GetAtt CastingTable.Arn
+    events:
+      - httpApi:
+          path: /casting/{jobId}
+          method: get
+          cors: true
+
+  listJobs:
+    handler: src/handlers/casting.listJobs
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:Scan
+        Resource: !GetAtt CastingTable.Arn
+    events:
+      - httpApi:
+          path: /casting
+          method: get
+          cors: true
+
+  updateJob:
+    handler: src/handlers/casting.updateJob
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:UpdateItem
+          - dynamodb:GetItem
+        Resource: !GetAtt CastingTable.Arn
+    events:
+      - httpApi:
+          path: /casting/{jobId}
+          method: put
+          cors: true
+
+  deleteJob:
+    handler: src/handlers/casting.deleteJob
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:DeleteItem
+          - dynamodb:GetItem
+        Resource: !GetAtt CastingTable.Arn
+    events:
+      - httpApi:
+          path: /casting/{jobId}
+          method: delete
+          cors: true
+
+  applyForJob:
+    handler: src/handlers/casting.applyForJob
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:UpdateItem
+          - dynamodb:GetItem
+        Resource: !GetAtt CastingTable.Arn
+    events:
+      - httpApi:
+          path: /casting/{jobId}/apply
+          method: post
+          cors: true
+
+  getJobApplications:
+    handler: src/handlers/casting.getJobApplications
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:GetItem
+        Resource: !GetAtt CastingTable.Arn
+    events:
+      - httpApi:
+          path: /casting/{jobId}/applications
+          method: get
+          cors: true
+
+  updateApplicationStatus:
+    handler: src/handlers/casting.updateApplicationStatus
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:UpdateItem
+          - dynamodb:GetItem
+        Resource: !GetAtt CastingTable.Arn
+    events:
+      - httpApi:
+          path: /casting/{jobId}/applications/{userId}
+          method: put
+          cors: true
+
+  incrementJobView:
+    handler: src/handlers/casting.incrementJobView
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:UpdateItem
+        Resource: !GetAtt CastingTable.Arn
+    events:
+      - httpApi:
+          path: /casting/{jobId}/view
+          method: put
+          cors: true
+
+  addDocument:
+    handler: src/handlers/casting.addDocument
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:UpdateItem
+          - dynamodb:GetItem
+        Resource: !GetAtt CastingTable.Arn
+    events:
+      - httpApi:
+          path: /casting/{jobId}/documents
+          method: post
+          cors: true
+
+  removeDocument:
+    handler: src/handlers/casting.removeDocument
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:UpdateItem
+          - dynamodb:GetItem
+        Resource: !GetAtt CastingTable.Arn
+    events:
+      - httpApi:
+          path: /casting/{jobId}/documents/{docId}
+          method: delete
+          cors: true
+
+  getUserApplications:
+    handler: src/handlers/casting.getUserApplications
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:Scan
+        Resource: !GetAtt CastingTable.Arn
+    events:
+      - httpApi:
+          path: /casting/user/{userId}/applications
+          method: get
+          cors: true
+
+  searchJobs:
+    handler: src/handlers/casting.searchJobs
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:Scan
+        Resource: !GetAtt CastingTable.Arn
+    events:
+      - httpApi:
+          path: /casting/search
+          method: get
+          cors: true
 
 resources:
   Resources:
-    TasksTable: 
-      ${file(resources/TaskTable.yaml):TasksDynamoDBTable}
+    UsersTable:
+      ${file(resources/DynamoTable.yaml):UsersTable}
+    CastingTable:
+      ${file(resources/DynamoTable.yaml):CastingTable}
     CognitoUserPool: 
       ${file(resources/Cognito.yaml):CognitoUserPool}
     CognitoUserPoolClient: 
