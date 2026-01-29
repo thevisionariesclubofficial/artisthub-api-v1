@@ -1,0 +1,188 @@
+org: thevisionariesclub
+service: task-api-v1
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  stage: ${opt:stage, 'dev'}
+  region: ${opt:region, 'ap-south-1'}
+  memorySize: 128
+  logRetentionInDays: 1
+  timeout: 30
+  environment:
+    REGION: ${self:provider.region}
+    TASKS_TABLE: !Ref TasksTable
+    USER_POOL_CLIENT_ID: !Ref CognitoUserPoolClient
+  httpApi:
+    authorizers:
+      tokenAuthorizer:
+        type: request
+        identitySource: $request.header.Authorization
+        functionName: tokenAuthorizer
+      jwtAuthorizer:
+        type: jwt
+        identitySource: $request.header.Authorization
+        issuerUrl: !Join ['', [
+          'https://cognito-idp.',
+          '${self:provider.region}',
+          '.amazonaws.com/',
+          '${self:custom.cognito.userPoolId}'
+        ]]
+        audience:
+          - ${self:custom.cognito.userPoolClientId}
+
+functions:
+  signUp:
+    handler: src/handlers/auth.signUp
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - cognito-idp:SignUp
+        Resource: !GetAtt CognitoUserPool.Arn
+    events:
+      - httpApi:
+          path: /auth/signup
+          method: post
+          cors: true
+
+  signIn:
+    handler: src/handlers/auth.signIn
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - cognito-idp:InitiateAuth
+        Resource: !GetAtt CognitoUserPool.Arn
+    events:
+      - httpApi:
+          path: /auth/login
+          method: post
+          cors: true
+
+  confirmSignUp:
+    handler: src/handlers/auth.confirmSignUp
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - cognito-idp:ConfirmSignUp
+        Resource: !GetAtt CognitoUserPool.Arn
+    events:
+      - httpApi:
+          path: /auth/confirm
+          method: post
+          cors: true
+
+  resendConfirmationCode:
+    handler: src/handlers/auth.resendConfirmationCode
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - cognito-idp:ResendConfirmationCode
+        Resource: !GetAtt CognitoUserPool.Arn
+    events:
+      - httpApi:
+          path: /auth/resend-code
+          method: post
+          cors: true
+
+  adminConfirmUser:
+    handler: src/handlers/auth.adminConfirmUser
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - cognito-idp:AdminConfirmSignUp
+        Resource: !GetAtt CognitoUserPool.Arn
+    environment:
+      USER_POOL_ID: !Ref CognitoUserPool
+    events:
+      - httpApi:
+          path: /auth/admin-confirm
+          method: post
+          cors: true
+
+  forgotPassword:
+    handler: src/handlers/auth.forgotPassword
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - cognito-idp:ForgotPassword
+        Resource: !GetAtt CognitoUserPool.Arn
+    events:
+      - httpApi:
+          path: /auth/forgot-password
+          method: post
+          cors: true
+
+  resetPassword:
+    handler: src/handlers/auth.resetPassword
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - cognito-idp:ConfirmForgotPassword
+        Resource: !GetAtt CognitoUserPool.Arn
+    events:
+      - httpApi:
+          path: /auth/reset-password
+          method: post
+          cors: true
+
+  tokenAuthorizer:
+    handler: src/authorizers/tokenAuthorizer.handler
+    environment:
+      TASKS_TABLE: ${self:provider.environment.TASKS_TABLE}
+
+  createTask:
+    handler: src/handlers/createTask.handler
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:PutItem
+        Resource: !GetAtt TasksTable.Arn
+    events:
+      - httpApi:
+          path: /tasks
+          method: post
+          authorizer: tokenAuthorizer
+
+  getTasks:
+    handler: src/handlers/getTasks.handler
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:Scan
+        Resource: !GetAtt TasksTable.Arn
+    events:
+      - httpApi:
+          path: /tasks
+          method: get
+          authorizer: jwtAuthorizer
+
+  updateTask:
+    handler: src/handlers/updateTask.handler
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - dynamodb:UpdateItem
+        Resource: !GetAtt TasksTable.Arn
+    events:
+      - httpApi:
+          path: /tasks/{id}
+          method: put
+          authorizer: tokenAuthorizer
+
+resources:
+  Resources:
+    TasksTable: 
+      ${file(resources/TaskTable.yaml):TasksDynamoDBTable}
+    CognitoUserPool: 
+      ${file(resources/Cognito.yaml):CognitoUserPool}
+    CognitoUserPoolClient: 
+      ${file(resources/Cognito.yaml):CognitoUserPoolClient}
+    CognitoUserPoolDomain: 
+      ${file(resources/Cognito.yaml):CognitoUserPoolDomain}
+plugins:
+  - serverless-iam-roles-per-function
+
+custom:
+  cognito:
+    userPoolId: !Ref CognitoUserPool
+    userPoolClientId: !Ref CognitoUserPoolClient

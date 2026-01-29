@@ -1,0 +1,44 @@
+CognitoUserPool:
+  Type: AWS::Cognito::UserPool
+  Properties:
+    UserPoolName: ${self:service}-user-pool-${self:provider.stage}
+    UsernameAttributes:
+      - email
+      - phone_number
+    AutoVerifiedAttributes:
+      - email
+    Policies:
+      PasswordPolicy:
+        MinimumLength: 8
+        RequireUppercase: true
+        RequireLowercase: true
+        RequireNumbers: true
+        RequireSymbols: false
+
+CognitoUserPoolClient:
+  Type: AWS::Cognito::UserPoolClient
+  Properties:
+    ClientName: ${self:service}-user-pool-client-${self:provider.stage}
+    UserPoolId: !Ref CognitoUserPool
+    AllowedOAuthFlowsUserPoolClient: true
+    AllowedOAuthScopes:
+      - email
+      - openid
+      - profile
+    SupportedIdentityProviders:
+      - COGNITO
+    AllowedOAuthFlows:
+      - code
+      - implicit
+    ExplicitAuthFlows:
+      - ADMIN_NO_SRP_AUTH
+      - USER_PASSWORD_AUTH
+    CallbackURLs:
+      - https://localhost:3000
+    DefaultRedirectURI: https://localhost:3000
+
+CognitoUserPoolDomain:
+  Type: AWS::Cognito::UserPoolDomain
+  Properties:
+    Domain: ${self:service}-auth-domain-${self:provider.stage}
+    UserPoolId: !Ref CognitoUserPool

@@ -1,0 +1,11 @@
+TasksDynamoDBTable:
+  Type: AWS::DynamoDB::Table
+  Properties:
+    TableName: ${self:service}-tasks-${self:provider.stage}
+    AttributeDefinitions:
+      - AttributeName: id
+        AttributeType: N
+    KeySchema:
+      - AttributeName: id
+        KeyType: HASH
+    BillingMode: PAY_PER_REQUEST
