@@ -1,7 +1,8 @@
 {
   "type": "module",
   "dependencies": {
-    "aws-sdk": "^2.1693.0"
+    "aws-sdk": "^2.1693.0",
+    "uuid": "^9.0.1"
   },
   "devDependencies": {
     "serverless-iam-roles-per-function": "^3.2.0"
